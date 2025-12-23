@@ -5,9 +5,13 @@ import com.example.transactions.support.Exceptions;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.regex.Pattern;
 
 
 public final class TransactionRules {
+
+  private static final int IDEMPOTENCY_KEY_MAX_LEN = 64;
+  private static final Pattern IDEMPOTENCY_KEY_PATTERN = Pattern.compile("^[A-Za-z0-9._-]+$");
 
   private TransactionRules() {}
 
@@ -49,9 +53,26 @@ public final class TransactionRules {
     return clientAmount.setScale(2, RoundingMode.UNNECESSARY);
   }
 
+  public static String validateIdempotencyKey(String idempotencyKey) {
+    if (idempotencyKey == null || idempotencyKey.isBlank()) {
+      throw new Exceptions.BadRequest("Idempotency-Key header is required");
+    }
+    if (idempotencyKey.length() > IDEMPOTENCY_KEY_MAX_LEN) {
+      throw new Exceptions.BadRequest("Idempotency-Key must be <= " + IDEMPOTENCY_KEY_MAX_LEN + " chars");
+    }
+    if (!IDEMPOTENCY_KEY_PATTERN.matcher(idempotencyKey).matches()) {
+      throw new Exceptions.BadRequest("Idempotency-Key contains invalid characters");
+    }
+    return idempotencyKey;
+  }
+
   public static BigDecimal toStoredAmount(OperationType operationType, BigDecimal normalizedClientAmount) {
     return operationType.isDebit() ? normalizedClientAmount.negate() : normalizedClientAmount;
   }
 
-
+  public static String canonicalRequest(long accountId, int operationTypeId, BigDecimal normalizedClientAmount) {
+    return "accountId=" + accountId +
+        "|op=" + operationTypeId +
+        "|amount=" + normalizedClientAmount.toPlainString();
+  }
 }
