@@ -61,7 +61,10 @@ public class TransactionCommandService {
     Transaction existing = transactionRepository.findByAccount_IdAndIdempotencyKey(accId, idem)
         .orElseThrow(() -> new Exceptions.Conflict("Idempotency-Key used but transaction record not found"));
 
-  
+    if (!existing.getRequestHash().equals(requestHash)) {
+      throw new Exceptions.Conflict("Idempotency-Key already used with a different request payload");
+    }
+
     TransactionService.TransactionView view = new TransactionService.TransactionView(
         existing.getId(),
         existing.getAccount().getId(),
@@ -71,9 +74,12 @@ public class TransactionCommandService {
     );
 
     if (inserted == 1) {
+      log.info("transaction_created txId={} accountId={} op={} amount={}",
+          existing.getId(), accId, operationTypeId, existing.getAmount());
       return new TransactionService.Result(view, false);
     }
 
+    log.info("transaction_replayed txId={} accountId={} idemKey={}", existing.getId(), accId, idem);
     return new TransactionService.Result(view, true);
   }
 }

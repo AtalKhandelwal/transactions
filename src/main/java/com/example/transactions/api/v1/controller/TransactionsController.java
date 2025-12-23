@@ -38,6 +38,12 @@ public class TransactionsController {
       tx.eventDate()
     );
 
+    if (result.replayed()) {
+      return ResponseEntity.ok()
+          .header("Idempotent-Replayed", "true")
+          .body(body);
+    }
+
     return ResponseEntity.status(201).body(body);
   }
 }
