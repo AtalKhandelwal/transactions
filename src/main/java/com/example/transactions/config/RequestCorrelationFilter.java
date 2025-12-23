@@ -9,7 +9,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-
+import java.time.Duration;
+import java.time.Instant;
 import java.util.UUID;
 
 @Component
@@ -28,9 +29,18 @@ public class RequestCorrelationFilter extends OncePerRequestFilter {
     MDC.put(TRACE_ID_MDC_KEY, traceId);
     response.setHeader(REQ_ID_HEADER, traceId);
 
+    Instant start = Instant.now();
     try {
       filterChain.doFilter(request, response);
     } finally {
+      long ms = Duration.between(start, Instant.now()).toMillis();
+      org.slf4j.LoggerFactory.getLogger("access").info(
+          "method={} path={} status={} durationMs={}",
+          request.getMethod(),
+          request.getRequestURI(),
+          response.getStatus(),
+          ms
+      );
       MDC.remove(TRACE_ID_MDC_KEY);
     }
   }
